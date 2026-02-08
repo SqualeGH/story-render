@@ -71,7 +71,6 @@ html, body {
   position: absolute;
   inset: 0;
   z-index: 5;
-  cursor: pointer;
 }
 </style>
 </head>
@@ -101,6 +100,7 @@ let index = 0;
 let timer = null;
 let startTime = 0;
 let paused = false;
+let manualNav = false;
 
 /* Progress bar */
 durations.forEach((_, i) => {
@@ -129,9 +129,10 @@ function startSlide() {
 
   startTime = Date.now();
   paused = false;
+  manualNav = false;
 
   timer = setInterval(() => {
-    if (paused) return;
+    if (paused || manualNav) return;
 
     const elapsed = Date.now() - startTime;
     const percent = Math.min(100, elapsed / durations[index] * 100);
@@ -150,6 +151,7 @@ function startSlide() {
 }
 
 function next() {
+  manualNav = true;
   clearInterval(timer);
   if (index < slides.length - 1) {
     index++;
@@ -159,6 +161,7 @@ function next() {
 }
 
 function prev() {
+  manualNav = true;
   clearInterval(timer);
   if (index > 0) {
     index--;
@@ -168,6 +171,7 @@ function prev() {
 }
 
 function goTo(i) {
+  manualNav = true;
   clearInterval(timer);
   index = i;
   showSlide(index);
@@ -192,23 +196,20 @@ document.addEventListener('keydown', e => {
   }
 });
 
-/* Mobile gestures — corrected tap logic */
+/* Mobile gestures — tap behaves exactly like swipe */
 let startX = 0;
 let startY = 0;
 let longPress = null;
 let moved = false;
-let tapConsumed = false;
 
 layer.addEventListener('touchstart', e => {
   const t = e.touches[0];
   startX = t.clientX;
   startY = t.clientY;
   moved = false;
-  tapConsumed = false;
 
   longPress = setTimeout(() => {
     paused = true;
-    tapConsumed = true;
   }, 300);
 }, { passive: true });
 
@@ -229,20 +230,17 @@ layer.addEventListener('touchend', e => {
     return;
   }
 
-  if (tapConsumed) return;
-
   const endX = e.changedTouches[0].clientX;
   const dx = endX - startX;
 
+  /* Swipe */
   if (Math.abs(dx) > 40) {
     dx < 0 ? next() : prev();
     return;
   }
 
-  /* Tap zones — reset timer to avoid auto-skip */
-  clearInterval(timer);
-  const mid = window.innerWidth / 2;
-  endX > mid ? next() : prev();
+  /* Tap = same logic as swipe */
+  endX > window.innerWidth / 2 ? next() : prev();
 });
 
 /* Init */
