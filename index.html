@@ -109,25 +109,30 @@ durations.forEach((_, i) => {
   const seg = document.createElement('div');
   seg.className = 'progress-segment';
   seg.innerHTML = '<div class="progress-fill"></div>';
-  seg.addEventListener('click', () => goTo(i));
+  seg.onclick = () => goTo(i);
   progress.appendChild(seg);
 });
+
+function updateProgress() {
+  document.querySelectorAll('.progress-fill').forEach((f, i) => {
+    if (i < index) f.style.width = '100%';
+    if (i > index) f.style.width = '0%';
+  });
+}
 
 function showSlide(i) {
   slides.forEach(s => s.classList.remove('active'));
   slides[i].classList.add('active');
-
-  document.querySelectorAll('.progress-fill').forEach((f, idx) => {
-    f.style.width = idx < i ? '100%' : '0%';
-  });
+  updateProgress();
 }
 
 function startSlide() {
   clearInterval(timer);
-  if (index === slides.length - 1) return;
 
   const fill = document.querySelectorAll('.progress-fill')[index];
+  fill.style.width = '0%';
   startTime = Date.now();
+  paused = false;
 
   timer = setInterval(() => {
     if (paused) return;
@@ -136,7 +141,15 @@ function startSlide() {
     const percent = Math.min(100, elapsed / durations[index] * 100);
     fill.style.width = percent + '%';
 
-    if (elapsed >= durations[index]) next();
+    if (elapsed >= durations[index]) {
+      if (index === slides.length - 1) {
+        fill.style.width = '100%';
+        paused = true;
+        clearInterval(timer);
+      } else {
+        next();
+      }
+    }
   }, 50);
 }
 
@@ -170,7 +183,7 @@ function togglePause() {
   if (!paused) startTime = Date.now();
 }
 
-/* Desktop pause */
+/* Desktop */
 document.addEventListener('keydown', e => {
   if (e.code === 'Space') {
     e.preventDefault();
@@ -178,38 +191,33 @@ document.addEventListener('keydown', e => {
   }
 });
 
-/* Touch logic (iPhone compatible) */
-let touchStartX = 0;
-let touchStartY = 0;
-let touchStartTime = 0;
-let longPressTimer = null;
+/* Mobile gestures (Instagram-like) */
+let startX = 0;
+let startY = 0;
+let longPress = null;
 let moved = false;
 
 touchZone.addEventListener('touchstart', e => {
   const t = e.touches[0];
-  touchStartX = t.clientX;
-  touchStartY = t.clientY;
-  touchStartTime = Date.now();
+  startX = t.clientX;
+  startY = t.clientY;
   moved = false;
 
-  longPressTimer = setTimeout(() => {
+  longPress = setTimeout(() => {
     paused = true;
   }, 250);
 }, { passive: true });
 
 touchZone.addEventListener('touchmove', e => {
   const t = e.touches[0];
-  const dx = Math.abs(t.clientX - touchStartX);
-  const dy = Math.abs(t.clientY - touchStartY);
-
-  if (dx > 10 || dy > 10) {
+  if (Math.abs(t.clientX - startX) > 15 || Math.abs(t.clientY - startY) > 15) {
     moved = true;
-    clearTimeout(longPressTimer);
+    clearTimeout(longPress);
   }
 }, { passive: true });
 
 touchZone.addEventListener('touchend', e => {
-  clearTimeout(longPressTimer);
+  clearTimeout(longPress);
 
   if (paused) {
     paused = false;
@@ -217,13 +225,20 @@ touchZone.addEventListener('touchend', e => {
     return;
   }
 
-  if (moved) {
-    const dx = e.changedTouches[0].clientX - touchStartX;
-    if (dx < -40) next();
-    if (dx > 40) prev();
-  } else {
-    next();
+  const endX = e.changedTouches[0].clientX;
+  const dx = endX - startX;
+
+  /* Swipe */
+  if (Math.abs(dx) > 40) {
+    if (dx < 0) next();
+    if (dx > 0) prev();
+    return;
   }
+
+  /* Tap zones */
+  const screenMid = window.innerWidth / 2;
+  if (endX > screenMid) next();
+  else prev();
 });
 
 /* Init */
