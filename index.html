@@ -13,7 +13,7 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  touch-action: manipulation;
+  touch-action: none;
 }
 
 #story {
@@ -44,25 +44,23 @@ html, body {
   object-fit: contain;
 }
 
-/* Barre de progression */
 #progress {
   position: absolute;
   top: env(safe-area-inset-top);
   left: 0;
   right: 0;
-  height: 8px;
+  height: 10px;
   display: flex;
-  gap: 4px;
-  padding: 8px;
+  gap: 6px;
+  padding: 10px;
   z-index: 10;
 }
 
 .progress-segment {
   flex: 1;
   background: rgba(255,255,255,0.25);
-  border-radius: 4px;
+  border-radius: 5px;
   overflow: hidden;
-  cursor: pointer;
 }
 
 .progress-fill {
@@ -71,7 +69,6 @@ html, body {
   background: white;
 }
 
-/* Zone tactile */
 #touch {
   position: absolute;
   inset: 0;
@@ -99,20 +96,20 @@ const slides = document.querySelectorAll('.slide');
 const progress = document.getElementById('progress');
 const touchZone = document.getElementById('touch');
 
-const durations = [5000, 5000, 5000]; // durée par slide (ms)
+const durations = [5000, 5000, 5000];
 
 let index = 0;
 let timer = null;
 let startTime = 0;
 let paused = false;
 
-/* Création barre progression */
+/* Progress bar */
 progress.innerHTML = '';
 durations.forEach((_, i) => {
   const seg = document.createElement('div');
   seg.className = 'progress-segment';
   seg.innerHTML = '<div class="progress-fill"></div>';
-  seg.onclick = () => goTo(i);
+  seg.addEventListener('click', () => goTo(i));
   progress.appendChild(seg);
 });
 
@@ -127,7 +124,7 @@ function showSlide(i) {
 
 function startSlide() {
   clearInterval(timer);
-  if (index === slides.length - 1) return; // pause auto dernier slide
+  if (index === slides.length - 1) return;
 
   const fill = document.querySelectorAll('.progress-fill')[index];
   startTime = Date.now();
@@ -136,12 +133,10 @@ function startSlide() {
     if (paused) return;
 
     const elapsed = Date.now() - startTime;
-    const percent = Math.min(100, (elapsed / durations[index]) * 100);
+    const percent = Math.min(100, elapsed / durations[index] * 100);
     fill.style.width = percent + '%';
 
-    if (elapsed >= durations[index]) {
-      next();
-    }
+    if (elapsed >= durations[index]) next();
   }, 50);
 }
 
@@ -149,6 +144,15 @@ function next() {
   clearInterval(timer);
   if (index < slides.length - 1) {
     index++;
+    showSlide(index);
+    startSlide();
+  }
+}
+
+function prev() {
+  clearInterval(timer);
+  if (index > 0) {
+    index--;
     showSlide(index);
     startSlide();
   }
@@ -163,12 +167,10 @@ function goTo(i) {
 
 function togglePause() {
   paused = !paused;
-  if (!paused) {
-    startTime = Date.now();
-  }
+  if (!paused) startTime = Date.now();
 }
 
-/* Desktop : espace + clic */
+/* Desktop pause */
 document.addEventListener('keydown', e => {
   if (e.code === 'Space') {
     e.preventDefault();
@@ -176,24 +178,49 @@ document.addEventListener('keydown', e => {
   }
 });
 
-touchZone.addEventListener('click', () => {
-  if (!paused) next();
-});
+/* Touch logic (iPhone compatible) */
+let touchStartX = 0;
+let touchStartY = 0;
+let touchStartTime = 0;
+let longPressTimer = null;
+let moved = false;
 
-/* Mobile : appui long (Instagram-like) */
-let pressTimer = null;
+touchZone.addEventListener('touchstart', e => {
+  const t = e.touches[0];
+  touchStartX = t.clientX;
+  touchStartY = t.clientY;
+  touchStartTime = Date.now();
+  moved = false;
 
-touchZone.addEventListener('touchstart', () => {
-  pressTimer = setTimeout(() => {
+  longPressTimer = setTimeout(() => {
     paused = true;
-  }, 200);
-});
+  }, 250);
+}, { passive: true });
 
-touchZone.addEventListener('touchend', () => {
-  clearTimeout(pressTimer);
+touchZone.addEventListener('touchmove', e => {
+  const t = e.touches[0];
+  const dx = Math.abs(t.clientX - touchStartX);
+  const dy = Math.abs(t.clientY - touchStartY);
+
+  if (dx > 10 || dy > 10) {
+    moved = true;
+    clearTimeout(longPressTimer);
+  }
+}, { passive: true });
+
+touchZone.addEventListener('touchend', e => {
+  clearTimeout(longPressTimer);
+
   if (paused) {
     paused = false;
     startTime = Date.now();
+    return;
+  }
+
+  if (moved) {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (dx < -40) next();
+    if (dx > 40) prev();
   } else {
     next();
   }
@@ -206,4 +233,3 @@ startSlide();
 
 </body>
 </html>
-
