@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Story Interactive Fullscreen</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+<style>
+html, body {
+  margin:0;
+  padding:0;
+  width:100%;
+  height:100%;
+  background:black;
+  overflow:hidden;
+  touch-action: manipulation;
+}
+
+#story-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.slide {
+  position: absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background:black;
+  transition: opacity 0.5s ease;
+  opacity:0;
+}
+
+.slide.active {
+  opacity:1;
+  z-index: 1;
+}
+
+.slide img {
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  position:absolute;
+  top:0;
+  left:0;
+  transform:none;
+}
+
+@media(min-width: 768px) {
+  .slide img {
+    width:auto;
+    height:100%;
+    left:50%;
+    transform: translateX(-50%);
+  }
+}
+
+#progress {
+  position: fixed;
+  top:10px;
+  left:10px;
+  right:10px;
+  display:flex;
+  gap:5px;
+  z-index:1000;
+}
+
+#progress span {
+  flex:1;
+  height:6px;
+  background: rgba(255,255,255,0.3);
+  border-radius:3px;
+  overflow:hidden;
+  cursor:pointer;
+}
+
+#progress span div {
+  height:100%;
+  width:0%;
+  background: #ffcc00;
+  transform-origin:left;
+}
+
+.tap-zone {
+  position:fixed;
+  top:0;
+  bottom:0;
+  width:50%;
+  z-index:999;
+}
+.tap-left { left:0; }
+.tap-right { right:0; }
+</style>
+</head>
+
+<body>
+
+<div id="progress"></div>
+<div class="tap-zone tap-left"></div>
+<div class="tap-zone tap-right"></div>
+
+<div id="story-container">
+  <div class="slide active" data-duration="5000">
+    <img src="media/slide1.jpg" alt="Slide 1">
+  </div>
+  <div class="slide" data-duration="6000">
+    <img src="media/slide2.jpg" alt="Slide 2">
+  </div>
+  <div class="slide" data-duration="7000">
+    <img src="media/slide3.jpg" alt="Slide 3">
+  </div>
+</div>
+
+<script>
+const slides = Array.from(document.querySelectorAll('.slide'));
+const progressContainer = document.getElementById('progress');
+let currentIndex = 0;
+let timer;
+let paused = false;
+let remainingTime = null;
+let startTime = null;
+
+/* Création barre cliquable (desktop + mobile) */
+slides.forEach((slide,i)=>{
+  const span = document.createElement('span');
+  const bar = document.createElement('div');
+  span.appendChild(bar);
+  progressContainer.appendChild(span);
+
+  // Desktop click
+  span.addEventListener('click', ()=>{
+    currentIndex = i;
+    showSlide(currentIndex);
+  });
+
+  // Mobile touch
+  span.addEventListener('touchstart', e=>{
+    e.preventDefault(); 
+    currentIndex = i;
+    showSlide(currentIndex);
+  });
+});
+
+const progressBars = Array.from(document.querySelectorAll('#progress span div'));
+
+/* Afficher slide */
+function showSlide(index){
+  slides.forEach((slide,i)=>{
+    slide.classList.toggle('active', i===index);
+    progressBars[i].style.transition='none';
+    progressBars[i].style.width = (i<index)?'100%':'0%';
+  });
+
+  const duration = slides[index].dataset.duration || 5000;
+  startTime = Date.now();
+
+  // Pause automatique si dernier slide
+  if(index === slides.length -1){
+    progressBars[index].style.width = '100%';
+    clearTimeout(timer);
+    return;
+  }
+
+  setTimeout(()=>{
+    progressBars[index].style.transition = `width ${duration}ms linear`;
+    progressBars[index].style.width = '100%';
+  },50);
+
+  clearTimeout(timer);
+  timer = setTimeout(nextSlide, duration);
+}
+
+function nextSlide(){
+  currentIndex = (currentIndex +1) % slides.length;
+  showSlide(currentIndex);
+}
+
+function prevSlide(){
+  currentIndex = (currentIndex -1 + slides.length) % slides.length;
+  showSlide(currentIndex);
+}
+
+/* Tap zones */
+document.querySelector('.tap-right').addEventListener('click', nextSlide);
+document.querySelector('.tap-left').addEventListener('click', prevSlide);
+
+/* Swipe */
+let touchStartX = null;
+document.addEventListener('touchstart', e=>{ touchStartX = e.changedTouches[0].clientX; });
+document.addEventListener('touchend', e=>{
+  if(touchStartX === null) return;
+  let deltaX = e.changedTouches[0].clientX - touchStartX;
+  if(deltaX > 50) prevSlide();
+  else if(deltaX < -50) nextSlide();
+  touchStartX = null;
+});
+
+/* Pause style Instagram mobile + desktop */
+const container = document.getElementById('story-container');
+
+function pauseSlide(){
+  if(paused) return;
+  paused = true;
+  clearTimeout(timer);
+  const bar = progressBars[currentIndex];
+  const elapsed = Date.now() - startTime;
+  const duration = slides[currentIndex].dataset.duration || 5000;
+  remainingTime = duration - elapsed;
+  bar.style.transition='none';
+}
+
+function resumeSlide(){
+  if(!paused) return;
+  paused = false;
+  const bar = progressBars[currentIndex];
+  bar.style.transition = `width ${remainingTime}ms linear`;
+  bar.style.width='100%';
+  startTime = Date.now();
+  timer = setTimeout(nextSlide, remainingTime);
+}
+
+/* Mobile touch pause */
+container.addEventListener('touchstart', pauseSlide);
+container.addEventListener('touchend', resumeSlide);
+
+/* Desktop mouse pause */
+container.addEventListener('mousedown', pauseSlide);
+container.addEventListener('mouseup', resumeSlide);
+
+/* Desktop barre d'espace toggle pause/reprise */
+document.addEventListener('keydown', e=>{
+  if(e.code === 'Space'){
+    e.preventDefault();
+    if(paused){
+      resumeSlide();
+    } else {
+      pauseSlide();
+    }
+  }
+});
+
+/* Ajuster la hauteur */
+function setFullHeight(){
+  const vh = window.innerHeight;
+  document.getElementById('story-container').style.height = vh+'px';
+  slides.forEach(slide=>slide.style.height = vh+'px');
+}
+window.addEventListener('resize', setFullHeight);
+window.addEventListener('orientationchange', setFullHeight);
+setTimeout(setFullHeight,50);
+
+showSlide(currentIndex);
+</script>
+
+</body>
+</html>
