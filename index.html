@@ -81,29 +81,30 @@ html, body {
 
   <div id="progress"></div>
 
+  <!-- AJOUTE / SUPPRIME DES SLIDES LIBREMENT -->
   <div class="slide active"><img src="media/slide1.jpg"></div>
   <div class="slide"><img src="media/slide2.jpg"></div>
   <div class="slide"><img src="media/slide3.jpg"></div>
+  <div class="slide"><img src="media/slide4.jpg"></div>
+  <div class="slide"><img src="media/slide5.jpg"></div>
 
   <div id="interaction"></div>
-
 </div>
 
 <script>
-const slides = document.querySelectorAll('.slide');
+const slides = Array.from(document.querySelectorAll('.slide'));
 const progress = document.getElementById('progress');
 const layer = document.getElementById('interaction');
 
-const durations = [5000, 5000, 5000];
+const SLIDE_DURATION = 5000; // durée par défaut (ms)
 
 let index = 0;
 let timer = null;
 let startTime = 0;
 let paused = false;
-let manualNav = false;
 
-/* Progress bar */
-durations.forEach((_, i) => {
+/* Génération dynamique de la barre */
+slides.forEach((_, i) => {
   const seg = document.createElement('div');
   seg.className = 'progress-segment';
   seg.innerHTML = '<div class="progress-fill"></div>';
@@ -111,37 +112,37 @@ durations.forEach((_, i) => {
   progress.appendChild(seg);
 });
 
+function updateProgressStatic() {
+  document.querySelectorAll('.progress-fill').forEach((f, i) => {
+    f.style.width = i < index ? '100%' : '0%';
+  });
+}
+
 function showSlide(i) {
   slides.forEach(s => s.classList.remove('active'));
   slides[i].classList.add('active');
-
-  document.querySelectorAll('.progress-fill').forEach((f, idx) => {
-    if (idx < i) f.style.width = '100%';
-    if (idx > i) f.style.width = '0%';
-  });
+  updateProgressStatic();
 }
 
 function startSlide() {
   clearInterval(timer);
-
   const fill = document.querySelectorAll('.progress-fill')[index];
   fill.style.width = '0%';
 
   startTime = Date.now();
   paused = false;
-  manualNav = false;
 
   timer = setInterval(() => {
-    if (paused || manualNav) return;
+    if (paused) return;
 
     const elapsed = Date.now() - startTime;
-    const percent = Math.min(100, elapsed / durations[index] * 100);
+    const percent = Math.min(100, elapsed / SLIDE_DURATION * 100);
     fill.style.width = percent + '%';
 
-    if (elapsed >= durations[index]) {
+    if (elapsed >= SLIDE_DURATION) {
       if (index === slides.length - 1) {
         fill.style.width = '100%';
-        paused = true;
+        paused = true; // pause auto à la fin
         clearInterval(timer);
       } else {
         next();
@@ -151,7 +152,6 @@ function startSlide() {
 }
 
 function next() {
-  manualNav = true;
   clearInterval(timer);
   if (index < slides.length - 1) {
     index++;
@@ -161,7 +161,6 @@ function next() {
 }
 
 function prev() {
-  manualNav = true;
   clearInterval(timer);
   if (index > 0) {
     index--;
@@ -171,7 +170,6 @@ function prev() {
 }
 
 function goTo(i) {
-  manualNav = true;
   clearInterval(timer);
   index = i;
   showSlide(index);
@@ -185,8 +183,7 @@ function togglePause() {
 
 /* Desktop */
 layer.addEventListener('click', e => {
-  const mid = window.innerWidth / 2;
-  e.clientX > mid ? next() : prev();
+  e.clientX > window.innerWidth / 2 ? next() : prev();
 });
 
 document.addEventListener('keydown', e => {
@@ -196,17 +193,15 @@ document.addEventListener('keydown', e => {
   }
 });
 
-/* Mobile gestures — tap behaves exactly like swipe */
+/* Mobile — tap = swipe */
 let startX = 0;
 let startY = 0;
 let longPress = null;
-let moved = false;
 
 layer.addEventListener('touchstart', e => {
   const t = e.touches[0];
   startX = t.clientX;
   startY = t.clientY;
-  moved = false;
 
   longPress = setTimeout(() => {
     paused = true;
@@ -216,7 +211,6 @@ layer.addEventListener('touchstart', e => {
 layer.addEventListener('touchmove', e => {
   const t = e.touches[0];
   if (Math.abs(t.clientX - startX) > 15 || Math.abs(t.clientY - startY) > 15) {
-    moved = true;
     clearTimeout(longPress);
   }
 }, { passive: true });
@@ -233,14 +227,11 @@ layer.addEventListener('touchend', e => {
   const endX = e.changedTouches[0].clientX;
   const dx = endX - startX;
 
-  /* Swipe */
   if (Math.abs(dx) > 40) {
     dx < 0 ? next() : prev();
-    return;
+  } else {
+    endX > window.innerWidth / 2 ? next() : prev();
   }
-
-  /* Tap = same logic as swipe */
-  endX > window.innerWidth / 2 ? next() : prev();
 });
 
 /* Init */
