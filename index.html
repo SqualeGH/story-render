@@ -13,16 +13,12 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  touch-action: none;
 }
 
 #story {
   position: fixed;
   inset: 0;
   background: black;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .slide {
@@ -44,6 +40,7 @@ html, body {
   object-fit: contain;
 }
 
+/* Progress bar */
 #progress {
   position: absolute;
   top: env(safe-area-inset-top);
@@ -61,6 +58,7 @@ html, body {
   background: rgba(255,255,255,0.25);
   border-radius: 5px;
   overflow: hidden;
+  cursor: pointer;
 }
 
 .progress-fill {
@@ -69,10 +67,12 @@ html, body {
   background: white;
 }
 
-#touch {
+/* Interaction layer */
+#interaction {
   position: absolute;
   inset: 0;
   z-index: 5;
+  cursor: pointer;
 }
 </style>
 </head>
@@ -87,14 +87,14 @@ html, body {
   <div class="slide"><img src="media/slide2.jpg"></div>
   <div class="slide"><img src="media/slide3.jpg"></div>
 
-  <div id="touch"></div>
+  <div id="interaction"></div>
 
 </div>
 
 <script>
 const slides = document.querySelectorAll('.slide');
 const progress = document.getElementById('progress');
-const touchZone = document.getElementById('touch');
+const layer = document.getElementById('interaction');
 
 const durations = [5000, 5000, 5000];
 
@@ -104,7 +104,6 @@ let startTime = 0;
 let paused = false;
 
 /* Progress bar */
-progress.innerHTML = '';
 durations.forEach((_, i) => {
   const seg = document.createElement('div');
   seg.className = 'progress-segment';
@@ -113,22 +112,18 @@ durations.forEach((_, i) => {
   progress.appendChild(seg);
 });
 
-function updateProgress() {
-  document.querySelectorAll('.progress-fill').forEach((f, i) => {
-    if (i < index) f.style.width = '100%';
-    if (i > index) f.style.width = '0%';
-  });
-}
-
 function showSlide(i) {
   slides.forEach(s => s.classList.remove('active'));
   slides[i].classList.add('active');
-  updateProgress();
+
+  document.querySelectorAll('.progress-fill').forEach((f, idx) => {
+    if (idx < i) f.style.width = '100%';
+    if (idx > i) f.style.width = '0%';
+  });
 }
 
 function startSlide() {
   clearInterval(timer);
-
   const fill = document.querySelectorAll('.progress-fill')[index];
   fill.style.width = '0%';
   startTime = Date.now();
@@ -136,10 +131,8 @@ function startSlide() {
 
   timer = setInterval(() => {
     if (paused) return;
-
     const elapsed = Date.now() - startTime;
-    const percent = Math.min(100, elapsed / durations[index] * 100);
-    fill.style.width = percent + '%';
+    fill.style.width = Math.min(100, elapsed / durations[index] * 100) + '%';
 
     if (elapsed >= durations[index]) {
       if (index === slides.length - 1) {
@@ -154,7 +147,6 @@ function startSlide() {
 }
 
 function next() {
-  clearInterval(timer);
   if (index < slides.length - 1) {
     index++;
     showSlide(index);
@@ -163,7 +155,6 @@ function next() {
 }
 
 function prev() {
-  clearInterval(timer);
   if (index > 0) {
     index--;
     showSlide(index);
@@ -172,7 +163,6 @@ function prev() {
 }
 
 function goTo(i) {
-  clearInterval(timer);
   index = i;
   showSlide(index);
   startSlide();
@@ -183,7 +173,13 @@ function togglePause() {
   if (!paused) startTime = Date.now();
 }
 
-/* Desktop */
+/* Desktop interactions */
+layer.addEventListener('click', e => {
+  const mid = window.innerWidth / 2;
+  if (e.clientX > mid) next();
+  else prev();
+});
+
 document.addEventListener('keydown', e => {
   if (e.code === 'Space') {
     e.preventDefault();
@@ -191,13 +187,13 @@ document.addEventListener('keydown', e => {
   }
 });
 
-/* Mobile gestures (Instagram-like) */
+/* Mobile gestures */
 let startX = 0;
 let startY = 0;
 let longPress = null;
 let moved = false;
 
-touchZone.addEventListener('touchstart', e => {
+layer.addEventListener('touchstart', e => {
   const t = e.touches[0];
   startX = t.clientX;
   startY = t.clientY;
@@ -208,7 +204,7 @@ touchZone.addEventListener('touchstart', e => {
   }, 250);
 }, { passive: true });
 
-touchZone.addEventListener('touchmove', e => {
+layer.addEventListener('touchmove', e => {
   const t = e.touches[0];
   if (Math.abs(t.clientX - startX) > 15 || Math.abs(t.clientY - startY) > 15) {
     moved = true;
@@ -216,7 +212,7 @@ touchZone.addEventListener('touchmove', e => {
   }
 }, { passive: true });
 
-touchZone.addEventListener('touchend', e => {
+layer.addEventListener('touchend', e => {
   clearTimeout(longPress);
 
   if (paused) {
@@ -228,17 +224,13 @@ touchZone.addEventListener('touchend', e => {
   const endX = e.changedTouches[0].clientX;
   const dx = endX - startX;
 
-  /* Swipe */
   if (Math.abs(dx) > 40) {
-    if (dx < 0) next();
-    if (dx > 0) prev();
+    dx < 0 ? next() : prev();
     return;
   }
 
-  /* Tap zones */
-  const screenMid = window.innerWidth / 2;
-  if (endX > screenMid) next();
-  else prev();
+  const mid = window.innerWidth / 2;
+  endX > mid ? next() : prev();
 });
 
 /* Init */
