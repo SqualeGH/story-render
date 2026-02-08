@@ -58,7 +58,6 @@ html, body {
   background: rgba(255,255,255,0.25);
   border-radius: 5px;
   overflow: hidden;
-  cursor: pointer;
 }
 
 .progress-fill {
@@ -124,15 +123,19 @@ function showSlide(i) {
 
 function startSlide() {
   clearInterval(timer);
+
   const fill = document.querySelectorAll('.progress-fill')[index];
   fill.style.width = '0%';
+
   startTime = Date.now();
   paused = false;
 
   timer = setInterval(() => {
     if (paused) return;
+
     const elapsed = Date.now() - startTime;
-    fill.style.width = Math.min(100, elapsed / durations[index] * 100) + '%';
+    const percent = Math.min(100, elapsed / durations[index] * 100);
+    fill.style.width = percent + '%';
 
     if (elapsed >= durations[index]) {
       if (index === slides.length - 1) {
@@ -147,6 +150,7 @@ function startSlide() {
 }
 
 function next() {
+  clearInterval(timer);
   if (index < slides.length - 1) {
     index++;
     showSlide(index);
@@ -155,6 +159,7 @@ function next() {
 }
 
 function prev() {
+  clearInterval(timer);
   if (index > 0) {
     index--;
     showSlide(index);
@@ -163,6 +168,7 @@ function prev() {
 }
 
 function goTo(i) {
+  clearInterval(timer);
   index = i;
   showSlide(index);
   startSlide();
@@ -173,11 +179,10 @@ function togglePause() {
   if (!paused) startTime = Date.now();
 }
 
-/* Desktop interactions */
+/* Desktop */
 layer.addEventListener('click', e => {
   const mid = window.innerWidth / 2;
-  if (e.clientX > mid) next();
-  else prev();
+  e.clientX > mid ? next() : prev();
 });
 
 document.addEventListener('keydown', e => {
@@ -187,21 +192,24 @@ document.addEventListener('keydown', e => {
   }
 });
 
-/* Mobile gestures */
+/* Mobile gestures — corrected tap logic */
 let startX = 0;
 let startY = 0;
 let longPress = null;
 let moved = false;
+let tapConsumed = false;
 
 layer.addEventListener('touchstart', e => {
   const t = e.touches[0];
   startX = t.clientX;
   startY = t.clientY;
   moved = false;
+  tapConsumed = false;
 
   longPress = setTimeout(() => {
     paused = true;
-  }, 250);
+    tapConsumed = true;
+  }, 300);
 }, { passive: true });
 
 layer.addEventListener('touchmove', e => {
@@ -221,6 +229,8 @@ layer.addEventListener('touchend', e => {
     return;
   }
 
+  if (tapConsumed) return;
+
   const endX = e.changedTouches[0].clientX;
   const dx = endX - startX;
 
@@ -229,6 +239,8 @@ layer.addEventListener('touchend', e => {
     return;
   }
 
+  /* Tap zones — reset timer to avoid auto-skip */
+  clearInterval(timer);
   const mid = window.innerWidth / 2;
   endX > mid ? next() : prev();
 });
