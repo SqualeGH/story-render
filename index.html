@@ -37,7 +37,7 @@ html, body {
   height: 100vh;
   max-width: 100vw;
   object-fit: contain;
-  pointer-events: none; /* IMPORTANT */
+  pointer-events: none;
 }
 
 /* Progress bar */
@@ -82,12 +82,19 @@ html, body {
 
   <div id="progress"></div>
 
-  <!-- SLIDES ILLIMITÉS -->
+  <!-- AJOUTE AUTANT DE SLIDES QUE TU VEUX -->
   <div class="slide active"><img src="media/slide1.jpg"></div>
   <div class="slide"><img src="media/slide2.jpg"></div>
   <div class="slide"><img src="media/slide3.jpg"></div>
   <div class="slide"><img src="media/slide4.jpg"></div>
   <div class="slide"><img src="media/slide5.jpg"></div>
+  <div class="slide"><img src="media/slide6.jpg"></div>
+  <div class="slide"><img src="media/slide7.jpg"></div>
+  <div class="slide"><img src="media/slide8.jpg"></div>
+  <div class="slide"><img src="media/slide9.jpg"></div>
+  <div class="slide"><img src="media/slide10.jpg"></div>
+  <div class="slide"><img src="media/slide11.jpg"></div>
+  <div class="slide"><img src="media/slide12.jpg"></div>
 
   <div id="interaction"></div>
 </div>
@@ -100,15 +107,16 @@ const layer = document.getElementById('interaction');
 const DURATION = 5000;
 
 let index = 0;
-let timer;
-let startTime;
+let timer = null;
+let startTime = 0;
+let navigating = false;
 
 /* Progress bar */
 slides.forEach((_, i) => {
   const seg = document.createElement('div');
   seg.className = 'progress-segment';
   seg.innerHTML = '<div class="progress-fill"></div>';
-  seg.addEventListener('pointerdown', () => goTo(i));
+  seg.addEventListener('pointerdown', () => jumpTo(i));
   progress.appendChild(seg);
 });
 
@@ -123,26 +131,25 @@ function showSlide(i) {
 
 function startSlide() {
   clearInterval(timer);
+  navigating = false;
+
   const fill = document.querySelectorAll('.progress-fill')[index];
   fill.style.width = '0%';
-
   startTime = performance.now();
 
   timer = setInterval(() => {
     const p = (performance.now() - startTime) / DURATION * 100;
     fill.style.width = Math.min(100, p) + '%';
 
-    if (p >= 100) {
-      if (index < slides.length - 1) {
-        next();
-      } else {
-        clearInterval(timer);
-      }
+    if (p >= 100 && !navigating) {
+      navigating = true;
+      next();
     }
   }, 50);
 }
 
 function next() {
+  clearInterval(timer);
   if (index < slides.length - 1) {
     index++;
     showSlide(index);
@@ -151,6 +158,7 @@ function next() {
 }
 
 function prev() {
+  clearInterval(timer);
   if (index > 0) {
     index--;
     showSlide(index);
@@ -158,24 +166,28 @@ function prev() {
   }
 }
 
-function goTo(i) {
+function jumpTo(i) {
+  clearInterval(timer);
   index = i;
   showSlide(index);
   startSlide();
 }
 
-/* POINTER EVENTS — TAP + SWIPE */
+/* POINTER EVENTS — SAFARI SAFE */
 let startX = 0;
-let startTimePointer = 0;
+let startT = 0;
 
 layer.addEventListener('pointerdown', e => {
   startX = e.clientX;
-  startTimePointer = performance.now();
+  startT = performance.now();
 });
 
 layer.addEventListener('pointerup', e => {
   const dx = e.clientX - startX;
-  const dt = performance.now() - startTimePointer;
+  const dt = performance.now() - startT;
+
+  /* KILL TIMER IMMEDIATELY */
+  clearInterval(timer);
 
   /* Swipe */
   if (Math.abs(dx) > 40) {
