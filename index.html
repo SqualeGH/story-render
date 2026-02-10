@@ -46,7 +46,7 @@ html, body {
   top: env(safe-area-inset-top);
   left: 0;
   right: 0;
-  height: 10px;
+  height: 12px;
   display: flex;
   gap: 6px;
   padding: 10px;
@@ -56,7 +56,7 @@ html, body {
 .progress-segment {
   flex: 1;
   background: rgba(255,255,255,0.25);
-  border-radius: 5px;
+  border-radius: 6px;
   overflow: hidden;
 }
 
@@ -71,6 +71,7 @@ html, body {
   position: absolute;
   inset: 0;
   z-index: 5;
+  touch-action: none;
 }
 </style>
 </head>
@@ -81,12 +82,10 @@ html, body {
 
   <div id="progress"></div>
 
-  <!-- AJOUTE / SUPPRIME DES SLIDES LIBREMENT -->
   <div class="slide active"><img src="media/slide1.jpg"></div>
   <div class="slide"><img src="media/slide2.jpg"></div>
   <div class="slide"><img src="media/slide3.jpg"></div>
   <div class="slide"><img src="media/slide4.jpg"></div>
-  <div class="slide"><img src="media/slide5.jpg"></div>
 
   <div id="interaction"></div>
 </div>
@@ -96,19 +95,19 @@ const slides = Array.from(document.querySelectorAll('.slide'));
 const progress = document.getElementById('progress');
 const layer = document.getElementById('interaction');
 
-const SLIDE_DURATION = 5000; // durée par défaut (ms)
+const SLIDE_DURATION = 5000;
 
 let index = 0;
 let timer = null;
 let startTime = 0;
 let paused = false;
 
-/* Génération dynamique de la barre */
+/* Progress bar */
 slides.forEach((_, i) => {
   const seg = document.createElement('div');
   seg.className = 'progress-segment';
   seg.innerHTML = '<div class="progress-fill"></div>';
-  seg.onclick = () => goTo(i);
+  seg.addEventListener('click', () => goTo(i));
   progress.appendChild(seg);
 });
 
@@ -142,7 +141,7 @@ function startSlide() {
     if (elapsed >= SLIDE_DURATION) {
       if (index === slides.length - 1) {
         fill.style.width = '100%';
-        paused = true; // pause auto à la fin
+        paused = true;
         clearInterval(timer);
       } else {
         next();
@@ -181,10 +180,12 @@ function togglePause() {
   if (!paused) startTime = Date.now();
 }
 
-/* Desktop */
-layer.addEventListener('click', e => {
-  e.clientX > window.innerWidth / 2 ? next() : prev();
-});
+/* Desktop ONLY (no mobile click) */
+if (!('ontouchstart' in window)) {
+  layer.addEventListener('click', e => {
+    e.clientX > window.innerWidth / 2 ? next() : prev();
+  });
+}
 
 document.addEventListener('keydown', e => {
   if (e.code === 'Space') {
@@ -193,30 +194,33 @@ document.addEventListener('keydown', e => {
   }
 });
 
-/* Mobile — tap = swipe */
+/* Mobile gestures — tap == swipe logic */
 let startX = 0;
 let startY = 0;
-let longPress = null;
+let moved = false;
+let pressTimer = null;
 
 layer.addEventListener('touchstart', e => {
   const t = e.touches[0];
   startX = t.clientX;
   startY = t.clientY;
+  moved = false;
 
-  longPress = setTimeout(() => {
+  pressTimer = setTimeout(() => {
     paused = true;
   }, 300);
-}, { passive: true });
+}, { passive: false });
 
 layer.addEventListener('touchmove', e => {
   const t = e.touches[0];
   if (Math.abs(t.clientX - startX) > 15 || Math.abs(t.clientY - startY) > 15) {
-    clearTimeout(longPress);
+    moved = true;
+    clearTimeout(pressTimer);
   }
-}, { passive: true });
+}, { passive: false });
 
 layer.addEventListener('touchend', e => {
-  clearTimeout(longPress);
+  clearTimeout(pressTimer);
 
   if (paused) {
     paused = false;
@@ -229,9 +233,11 @@ layer.addEventListener('touchend', e => {
 
   if (Math.abs(dx) > 40) {
     dx < 0 ? next() : prev();
-  } else {
-    endX > window.innerWidth / 2 ? next() : prev();
+    return;
   }
+
+  /* TAP — identical behavior to swipe */
+  endX > window.innerWidth / 2 ? next() : prev();
 });
 
 /* Init */
