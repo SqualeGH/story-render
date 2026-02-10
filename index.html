@@ -20,6 +20,7 @@ html, body {
   inset: 0;
 }
 
+/* Slides */
 .slide {
   position: absolute;
   inset: 0;
@@ -38,6 +39,7 @@ html, body {
   object-fit: contain;
 }
 
+/* Barre de progression */
 #progress {
   position: absolute;
   top: env(safe-area-inset-top);
@@ -51,9 +53,11 @@ html, body {
 
 .progress-segment {
   flex: 1;
-  background: rgba(255,255,255,.3);
+  height: 10px;
+  background: rgba(255,255,255,0.3);
   border-radius: 6px;
   overflow: hidden;
+  cursor: pointer;
 }
 
 .progress-fill {
@@ -62,6 +66,7 @@ html, body {
   background: white;
 }
 
+/* Zone d’interaction */
 #interaction {
   position: absolute;
   inset: 0;
@@ -77,34 +82,47 @@ html, body {
   <div id="progress"></div>
 
   <!-- SLIDES ILLIMITÉS -->
-  <div class="slide active"><img src="media/slide1.jpg"></div>
-  <div class="slide"><img src="media/slide2.jpg"></div>
-  <div class="slide"><img src="media/slide3.jpg"></div>
-  <div class="slide"><img src="media/slide4.jpg"></div>
-  <div class="slide"><img src="media/slide5.jpg"></div>
-  <div class="slide"><img src="media/slide6.jpg"></div>
+  <div class="slide active"><img data-src="media/slide1.jpg"></div>
+  <div class="slide"><img data-src="media/slide2.jpg"></div>
+  <div class="slide"><img data-src="media/slide3.jpg"></div>
+  <div class="slide"><img data-src="media/slide4.jpg"></div>
+  <div class="slide"><img data-src="media/slide5.jpg"></div>
 
   <div id="interaction"></div>
 </div>
 
 <script>
 const slides = [...document.querySelectorAll('.slide')];
+const imgs = slides.map(s => s.querySelector('img'));
 const progress = document.getElementById('progress');
 const layer = document.getElementById('interaction');
 
 const DURATION = 5000;
 
 let index = 0;
-let timer;
-let startTime;
+let timer = null;
+let startTime = 0;
 let paused = false;
 
-/* Progress bar */
+/* ===== PRELOAD IMAGES ===== */
+let loaded = 0;
+imgs.forEach(img => {
+  const src = img.dataset.src;
+  const i = new Image();
+  i.src = src;
+  i.onload = () => {
+    img.src = src;
+    loaded++;
+    if (loaded === imgs.length) init();
+  };
+});
+
+/* ===== PROGRESS BAR ===== */
 slides.forEach((_, i) => {
   const seg = document.createElement('div');
   seg.className = 'progress-segment';
   seg.innerHTML = '<div class="progress-fill"></div>';
-  seg.onclick = () => goTo(i);
+  seg.addEventListener('click', () => goTo(i));
   progress.appendChild(seg);
 });
 
@@ -133,9 +151,7 @@ function startSlide() {
 
     if (p >= 100) {
       if (index < slides.length - 1) {
-        index++;
-        showSlide(index);
-        startSlide();
+        next();
       } else {
         paused = true;
         clearInterval(timer);
@@ -145,6 +161,7 @@ function startSlide() {
 }
 
 function next() {
+  clearInterval(timer);
   if (index < slides.length - 1) {
     index++;
     showSlide(index);
@@ -153,6 +170,7 @@ function next() {
 }
 
 function prev() {
+  clearInterval(timer);
   if (index > 0) {
     index--;
     showSlide(index);
@@ -161,12 +179,13 @@ function prev() {
 }
 
 function goTo(i) {
+  clearInterval(timer);
   index = i;
   showSlide(index);
   startSlide();
 }
 
-/* Desktop */
+/* ===== DESKTOP ===== */
 layer.addEventListener('click', e => {
   e.clientX > innerWidth / 2 ? next() : prev();
 });
@@ -178,7 +197,7 @@ document.addEventListener('keydown', e => {
   }
 });
 
-/* Mobile — TAP = SWIPE (sans long-press) */
+/* ===== MOBILE — TAP = SWIPE ===== */
 let sx = 0, sy = 0, t0 = 0;
 
 layer.addEventListener('touchstart', e => {
@@ -199,15 +218,16 @@ layer.addEventListener('touchend', e => {
     return;
   }
 
-  /* TAP pur */
   if (Math.abs(dx) < 10 && Math.abs(dy) < 10 && dt < 250) {
     t.clientX > innerWidth / 2 ? next() : prev();
   }
 });
 
-/* Init */
-showSlide(index);
-startSlide();
+/* ===== INIT ===== */
+function init() {
+  showSlide(index);
+  startSlide();
+}
 </script>
 
 </body>
