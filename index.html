@@ -6,67 +6,27 @@
 <title>JackEnVie I.D Esquisses</title>
 
 <style>
-html, body {
-  margin:0;
-  padding:0;
-  background:black;
-  width:100%;
-  height:100%;
-  overflow:hidden;
-}
-
+html, body { margin:0; padding:0; background:black; width:100%; height:100%; overflow:hidden; }
 #story { position:fixed; inset:0; }
 
-.slide {
-  position:absolute;
-  inset:0;
-  display:none;
-  align-items:center;
-  justify-content:center;
-}
-
+/* Slides */
+.slide { position:absolute; inset:0; display:none; align-items:center; justify-content:center; }
 .slide.active { display:flex; }
-
-.slide img {
-  height:100vh;
-  max-width:100vw;
-  object-fit:contain;
-  pointer-events:none;
-}
+.slide img { height:100vh; max-width:100vw; object-fit:contain; pointer-events:none; }
 
 /* Progress bar */
-#progress {
-  position:absolute;
-  top: env(safe-area-inset-top);
-  left:0;
-  right:0;
-  display:flex;
-  gap:6px;
-  padding:10px;
-  z-index:10;
+#progress{
+  position:absolute; top: env(safe-area-inset-top); left:0; right:0;
+  display:flex; gap:6px; padding:10px; z-index:10;
 }
+.progress-segment{
+  flex:1; height:10px; background:rgba(255,255,255,.3);
+  border-radius:6px; overflow:hidden; cursor:pointer;
+}
+.progress-fill{ height:100%; width:0%; background:white; }
 
-.progress-segment {
-  flex:1;
-  height:10px;
-  background:rgba(255,255,255,.3);
-  border-radius:6px;
-  overflow:hidden;
-  cursor:pointer;
-}
-
-.progress-fill {
-  height:100%;
-  width:0%;
-  background:white;
-}
-
-#interaction {
-  position:absolute;
-  inset:0;
-  z-index:5;
-  touch-action:manipulation;
-}
+/* Interaction */
+#interaction{ position:absolute; inset:0; z-index:5; touch-action:manipulation; }
 </style>
 </head>
 
@@ -74,58 +34,80 @@ html, body {
 
 <div id="story">
   <div id="progress"></div>
+
+  <!-- ✅ CATALOGUE À LA MAIN : ajoute/supprime autant de slides que tu veux -->
+  <div class="slide active"><img src="media/slide1.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide2.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide3.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide4.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide5.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide6.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide7.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide8.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide9.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide10.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide11.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide12.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide13.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide14.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide15.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide16.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide17.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide18.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide19.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide20.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide21.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide22.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide23.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide24.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide25.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide26.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide27.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide28.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide29.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide30.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide31.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide32.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide33.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide34.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide35.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide36.jpg" alt=""></div>
+  <div class="slide"><img src="media/slide37.jpg" alt=""></div>
+
   <div id="interaction"></div>
 </div>
 
 <script>
-const DURATION = 5000;
-const LOOP = true;
-
-const story = document.getElementById('story');
+const slides = [...document.querySelectorAll('.slide')];
 const progress = document.getElementById('progress');
 const layer = document.getElementById('interaction');
 
-let slides = [];
+const DURATION = 5000;
+const LOOP = true;
+
 let index = 0;
 let timer = null;
 let startTime = 0;
 let navigating = false;
 
-/* Load index.txt */
-fetch('media/index.txt', { cache: 'no-store' })
-  .then(r => r.text())
-  .then(text => {
-    const files = text
-      .split('\n')
-      .map(f => f.trim())
-      .filter(f => f.length > 0);
-    init(files);
-  })
-  .catch(() => alert("Impossible de lire media/index.txt"));
-
-function init(files) {
-
-  files.forEach((file, i) => {
-    const d = document.createElement('div');
-    d.className = 'slide' + (i === 0 ? ' active' : '');
-    const img = document.createElement('img');
-    img.src = 'media/' + file;
-    d.appendChild(img);
-    story.insertBefore(d, layer);
-    slides.push(d);
+/* Optional: preload all images (simple, non bloquant) */
+(function preload() {
+  slides.forEach(s => {
+    const img = s.querySelector('img');
+    if (!img || !img.src) return;
+    const i = new Image();
+    i.src = img.src;
   });
+})();
 
-  slides.forEach((_, i) => {
-    const seg = document.createElement('div');
-    seg.className = 'progress-segment';
-    seg.innerHTML = '<div class="progress-fill"></div>';
-    seg.addEventListener('pointerdown', () => jumpTo(i));
-    progress.appendChild(seg);
-  });
-
-  showSlide(index);
-  startSlide();
-}
+/* Build progress bar based on number of slides */
+slides.forEach((_, i) => {
+  const seg = document.createElement('div');
+  seg.className = 'progress-segment';
+  seg.innerHTML = '<div class="progress-fill"></div>';
+  seg.addEventListener('pointerdown', () => jumpTo(i));
+  progress.appendChild(seg);
+});
 
 function showSlide(i) {
   slides.forEach(s => s.classList.remove('active'));
@@ -142,7 +124,6 @@ function startSlide() {
 
   const fill = document.querySelectorAll('.progress-fill')[index];
   fill.style.width = '0%';
-
   startTime = performance.now();
 
   timer = setInterval(() => {
@@ -151,7 +132,7 @@ function startSlide() {
 
     if (p >= 100 && !navigating) {
       navigating = true;
-      next();
+      next(true);
     }
   }, 50);
 }
@@ -179,7 +160,7 @@ function jumpTo(i) {
   startSlide();
 }
 
-/* Tap + swipe Safari-safe */
+/* Tap + swipe Safari-safe (pointer events) */
 let sx = 0, st = 0;
 
 layer.addEventListener('pointerdown', e => {
@@ -191,6 +172,7 @@ layer.addEventListener('pointerup', e => {
   const dx = e.clientX - sx;
   const dt = performance.now() - st;
 
+  /* kill timer immediately to avoid Safari double-skip */
   clearInterval(timer);
 
   if (Math.abs(dx) > 40) return dx < 0 ? next() : prev();
@@ -200,6 +182,10 @@ layer.addEventListener('pointerup', e => {
 
   startSlide();
 });
+
+/* Init */
+showSlide(index);
+startSlide();
 </script>
 
 </body>
