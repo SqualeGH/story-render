@@ -7,71 +7,65 @@
 
 <style>
 html, body {
-  margin: 0;
-  padding: 0;
-  background: black;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
+  margin:0;
+  padding:0;
+  background:black;
+  width:100%;
+  height:100%;
+  overflow:hidden;
 }
 
-#story {
-  position: fixed;
-  inset: 0;
-}
+#story { position:fixed; inset:0; }
 
-/* Slides */
 .slide {
-  position: absolute;
-  inset: 0;
-  display: none;
-  align-items: center;
-  justify-content: center;
+  position:absolute;
+  inset:0;
+  display:none;
+  align-items:center;
+  justify-content:center;
 }
 
-.slide.active {
-  display: flex;
-}
+.slide.active { display:flex; }
 
 .slide img {
-  height: 100vh;
-  max-width: 100vw;
-  object-fit: contain;
-  pointer-events: none;
+  height:100vh;
+  max-width:100vw;
+  object-fit:contain;
+  pointer-events:none;
 }
 
 /* Progress bar */
 #progress {
-  position: absolute;
+  position:absolute;
   top: env(safe-area-inset-top);
-  left: 0;
-  right: 0;
-  display: flex;
-  gap: 6px;
-  padding: 10px;
-  z-index: 10;
+  left:0;
+  right:0;
+  display:flex;
+  gap:6px;
+  padding:10px;
+  z-index:10;
 }
 
 .progress-segment {
-  flex: 1;
-  height: 10px;
-  background: rgba(255,255,255,.3);
-  border-radius: 6px;
-  overflow: hidden;
+  flex:1;
+  height:10px;
+  background:rgba(255,255,255,.3);
+  border-radius:6px;
+  overflow:hidden;
+  cursor:pointer;
 }
 
 .progress-fill {
-  height: 100%;
-  width: 0%;
-  background: white;
+  height:100%;
+  width:0%;
+  background:white;
 }
 
-/* Interaction */
 #interaction {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  touch-action: manipulation;
+  position:absolute;
+  inset:0;
+  z-index:5;
+  touch-action:manipulation;
 }
 </style>
 </head>
@@ -79,46 +73,59 @@ html, body {
 <body>
 
 <div id="story">
-
   <div id="progress"></div>
-
-  <!-- AJOUTE AUTANT DE SLIDES QUE TU VEUX -->
-  <div class="slide active"><img src="media/slide1.jpg"></div>
-  <div class="slide"><img src="media/slide2.jpg"></div>
-  <div class="slide"><img src="media/slide3.jpg"></div>
-  <div class="slide"><img src="media/slide4.jpg"></div>
-  <div class="slide"><img src="media/slide5.jpg"></div>
-  <div class="slide"><img src="media/slide6.jpg"></div>
-  <div class="slide"><img src="media/slide7.jpg"></div>
-  <div class="slide"><img src="media/slide8.jpg"></div>
-  <div class="slide"><img src="media/slide9.jpg"></div>
-  <div class="slide"><img src="media/slide10.jpg"></div>
-  <div class="slide"><img src="media/slide11.jpg"></div>
-  <div class="slide"><img src="media/slide12.jpg"></div>
-
   <div id="interaction"></div>
 </div>
 
 <script>
-const slides = [...document.querySelectorAll('.slide')];
+const DURATION = 5000;
+const LOOP = true;
+
+const story = document.getElementById('story');
 const progress = document.getElementById('progress');
 const layer = document.getElementById('interaction');
 
-const DURATION = 5000;
-
+let slides = [];
 let index = 0;
 let timer = null;
 let startTime = 0;
 let navigating = false;
 
-/* Progress bar */
-slides.forEach((_, i) => {
-  const seg = document.createElement('div');
-  seg.className = 'progress-segment';
-  seg.innerHTML = '<div class="progress-fill"></div>';
-  seg.addEventListener('pointerdown', () => jumpTo(i));
-  progress.appendChild(seg);
-});
+/* Load index.txt */
+fetch('media/index.txt', { cache: 'no-store' })
+  .then(r => r.text())
+  .then(text => {
+    const files = text
+      .split('\n')
+      .map(f => f.trim())
+      .filter(f => f.length > 0);
+    init(files);
+  })
+  .catch(() => alert("Impossible de lire media/index.txt"));
+
+function init(files) {
+
+  files.forEach((file, i) => {
+    const d = document.createElement('div');
+    d.className = 'slide' + (i === 0 ? ' active' : '');
+    const img = document.createElement('img');
+    img.src = 'media/' + file;
+    d.appendChild(img);
+    story.insertBefore(d, layer);
+    slides.push(d);
+  });
+
+  slides.forEach((_, i) => {
+    const seg = document.createElement('div');
+    seg.className = 'progress-segment';
+    seg.innerHTML = '<div class="progress-fill"></div>';
+    seg.addEventListener('pointerdown', () => jumpTo(i));
+    progress.appendChild(seg);
+  });
+
+  showSlide(index);
+  startSlide();
+}
 
 function showSlide(i) {
   slides.forEach(s => s.classList.remove('active'));
@@ -135,6 +142,7 @@ function startSlide() {
 
   const fill = document.querySelectorAll('.progress-fill')[index];
   fill.style.width = '0%';
+
   startTime = performance.now();
 
   timer = setInterval(() => {
@@ -150,20 +158,18 @@ function startSlide() {
 
 function next() {
   clearInterval(timer);
-  if (index < slides.length - 1) {
-    index++;
-    showSlide(index);
-    startSlide();
-  }
+  if (index < slides.length - 1) index++;
+  else if (LOOP) index = 0;
+  showSlide(index);
+  startSlide();
 }
 
 function prev() {
   clearInterval(timer);
-  if (index > 0) {
-    index--;
-    showSlide(index);
-    startSlide();
-  }
+  if (index > 0) index--;
+  else if (LOOP) index = slides.length - 1;
+  showSlide(index);
+  startSlide();
 }
 
 function jumpTo(i) {
@@ -173,37 +179,27 @@ function jumpTo(i) {
   startSlide();
 }
 
-/* POINTER EVENTS — SAFARI SAFE */
-let startX = 0;
-let startT = 0;
+/* Tap + swipe Safari-safe */
+let sx = 0, st = 0;
 
 layer.addEventListener('pointerdown', e => {
-  startX = e.clientX;
-  startT = performance.now();
+  sx = e.clientX;
+  st = performance.now();
 });
 
 layer.addEventListener('pointerup', e => {
-  const dx = e.clientX - startX;
-  const dt = performance.now() - startT;
+  const dx = e.clientX - sx;
+  const dt = performance.now() - st;
 
-  /* KILL TIMER IMMEDIATELY */
   clearInterval(timer);
 
-  /* Swipe */
-  if (Math.abs(dx) > 40) {
-    dx < 0 ? next() : prev();
-    return;
-  }
+  if (Math.abs(dx) > 40) return dx < 0 ? next() : prev();
 
-  /* Tap */
-  if (Math.abs(dx) < 10 && dt < 250) {
-    e.clientX > innerWidth / 2 ? next() : prev();
-  }
+  if (Math.abs(dx) < 10 && dt < 250)
+    return e.clientX > innerWidth / 2 ? next() : prev();
+
+  startSlide();
 });
-
-/* Init */
-showSlide(index);
-startSlide();
 </script>
 
 </body>
