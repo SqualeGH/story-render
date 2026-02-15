@@ -15,10 +15,7 @@ html, body {
   overflow: hidden;
 }
 
-#story {
-  position: fixed;
-  inset: 0;
-}
+#story { position: fixed; inset: 0; }
 
 /* Slides */
 .slide {
@@ -28,10 +25,7 @@ html, body {
   align-items: center;
   justify-content: center;
 }
-
-.slide.active {
-  display: flex;
-}
+.slide.active { display: flex; }
 
 .slide img {
   height: 100vh;
@@ -49,17 +43,16 @@ html, body {
   display: flex;
   gap: 6px;
   padding: 10px;
-  z-index: 10;
+  z-index: 20;
 }
-
 .progress-segment {
   flex: 1;
   height: 10px;
   background: rgba(255,255,255,.3);
   border-radius: 6px;
   overflow: hidden;
+  cursor: pointer;
 }
-
 .progress-fill {
   height: 100%;
   width: 0%;
@@ -70,8 +63,21 @@ html, body {
 #interaction {
   position: absolute;
   inset: 0;
-  z-index: 5;
+  z-index: 10;
   touch-action: manipulation;
+}
+
+/* (Optionnel) petit hint desktop */
+#hint {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255,255,255,.65);
+  font: 14px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  z-index: 30;
+  user-select: none;
+  pointer-events: none;
 }
 </style>
 </head>
@@ -79,7 +85,6 @@ html, body {
 <body>
 
 <div id="story">
-
   <div id="progress"></div>
 
   <!-- 37 SLIDES -->
@@ -122,49 +127,98 @@ html, body {
   <div class="slide"><img src="media/slide37.jpg"></div>
 
   <div id="interaction"></div>
+  <div id="hint">Desktop : ← / → ou clic gauche/droite • Espace : pause</div>
 </div>
 
 <script>
 const slides = [...document.querySelectorAll('.slide')];
 const progress = document.getElementById('progress');
 const layer = document.getElementById('interaction');
+const hint = document.getElementById('hint');
 
 const DURATION = 5000;
+
+// ergonomie
+const LOOP = false;                 // true = boucle infinie
+const TAP_TO_PAUSE_MS = 220;        // tap "court" = nav, tap "plus long" = pause (mobile)
+const SWIPE_PX = 40;
 
 let index = 0;
 let timer = null;
 let startTime = 0;
 let navigating = false;
+let paused = false;
+let remainingMs = DURATION;
 
-/* Progress bar */
+// Progress bar
 slides.forEach((_, i) => {
   const seg = document.createElement('div');
   seg.className = 'progress-segment';
   seg.innerHTML = '<div class="progress-fill"></div>';
-  seg.addEventListener('pointerdown', () => jumpTo(i));
+  seg.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    jumpTo(i);
+  });
   progress.appendChild(seg);
 });
+
+function fills(){ return [...document.querySelectorAll('.progress-fill')]; }
 
 function showSlide(i) {
   slides.forEach(s => s.classList.remove('active'));
   slides[i].classList.add('active');
 
-  document.querySelectorAll('.progress-fill').forEach((f, idx) => {
+  fills().forEach((f, idx) => {
     f.style.width = idx < i ? '100%' : '0%';
   });
 }
 
-function startSlide() {
+function startSlide(ms = DURATION) {
   clearInterval(timer);
   navigating = false;
+  paused = false;
+  remainingMs = ms;
 
-  const fill = document.querySelectorAll('.progress-fill')[index];
+  const fill = fills()[index];
   fill.style.width = '0%';
   startTime = performance.now();
 
   timer = setInterval(() => {
-    const p = (performance.now() - startTime) / DURATION * 100;
-    fill.style.width = Math.min(100, p) + '%';
+    if (paused) return;
+    const elapsed = performance.now() - startTime;
+    const p = Math.min(100, (elapsed / remainingMs) * 100);
+    fill.style.width = p + '%';
+
+    if (p >= 100 && !navigating) {
+      navigating = true;
+      next();
+    }
+  }, 50);
+}
+
+function pause() {
+  if (paused) return;
+  paused = true;
+  const elapsed = performance.now() - startTime;
+  remainingMs = Math.max(50, remainingMs - elapsed);
+  clearInterval(timer);
+}
+
+function resume() {
+  if (!paused) return;
+  paused = false;
+
+  // reprend là où on s'est arrêté (sans “saut Safari”)
+  const fill = fills()[index];
+  const already = parseFloat(fill.style.width) || 0;
+  const targetMs = remainingMs;
+
+  startTime = performance.now();
+  timer = setInterval(() => {
+    if (paused) return;
+    const elapsed = performance.now() - startTime;
+    const p = Math.min(100, already + (elapsed / targetMs) * (100 - already));
+    fill.style.width = p + '%';
 
     if (p >= 100 && !navigating) {
       navigating = true;
@@ -175,60 +229,128 @@ function startSlide() {
 
 function next() {
   clearInterval(timer);
+  paused = false;
+
   if (index < slides.length - 1) {
     index++;
     showSlide(index);
-    startSlide();
+    startSlide(DURATION);
+  } else {
+    // fin
+    fills()[index].style.width = '100%';
+    if (LOOP) {
+      index = 0;
+      showSlide(index);
+      startSlide(DURATION);
+    } else {
+      // stop auto au dernier slide
+      paused = true;
+    }
   }
 }
 
 function prev() {
   clearInterval(timer);
+  paused = false;
+
   if (index > 0) {
     index--;
     showSlide(index);
-    startSlide();
+    startSlide(DURATION);
+  } else if (LOOP) {
+    index = slides.length - 1;
+    showSlide(index);
+    startSlide(DURATION);
+  } else {
+    // rester sur le 1er et relancer
+    showSlide(index);
+    startSlide(DURATION);
   }
 }
 
 function jumpTo(i) {
   clearInterval(timer);
+  paused = false;
   index = i;
   showSlide(index);
-  startSlide();
+  startSlide(DURATION);
 }
 
-/* POINTER EVENTS — SAFARI SAFE */
-let startX = 0;
-let startT = 0;
+/* ===== Interaction pointer (Safari iOS safe) =====
+   - Swipe gauche/droite : prev/next
+   - Tap court : gauche=prev / droite=next (desktop + mobile)
+   - Tap un peu long (mobile) : toggle pause (tap-to-pause)
+*/
+let downX = 0;
+let downT = 0;
+let moved = false;
 
 layer.addEventListener('pointerdown', e => {
-  startX = e.clientX;
-  startT = performance.now();
+  downX = e.clientX;
+  downT = performance.now();
+  moved = false;
+
+  // capture pour éviter "perte" d'event
+  try { layer.setPointerCapture(e.pointerId); } catch(_) {}
+
+  // Sur desktop, on veut aussi pouvoir "maintenir" pour pause (optionnel)
+  // Ici on ne le fait pas; on garde espace pour pause.
+});
+
+layer.addEventListener('pointermove', e => {
+  if (Math.abs(e.clientX - downX) > 12) moved = true;
 });
 
 layer.addEventListener('pointerup', e => {
-  const dx = e.clientX - startX;
-  const dt = performance.now() - startT;
-
-  /* KILL TIMER IMMEDIATELY */
+  // kill timer immédiatement pour éviter double-skip Safari
   clearInterval(timer);
 
-  /* Swipe */
-  if (Math.abs(dx) > 40) {
+  const dx = e.clientX - downX;
+  const dt = performance.now() - downT;
+
+  // Swipe
+  if (Math.abs(dx) > SWIPE_PX) {
     dx < 0 ? next() : prev();
     return;
   }
 
-  /* Tap */
-  if (Math.abs(dx) < 10 && dt < 250) {
+  // Tap-to-pause (mobile-friendly) : tap un peu long sans bouger
+  // (sur desktop, espace reste la pause principale)
+  if (!moved && dt >= TAP_TO_PAUSE_MS && dt < 700) {
+    paused ? resume() : pause();
+    return;
+  }
+
+  // Tap court = navigation
+  if (!moved && dt < TAP_TO_PAUSE_MS) {
     e.clientX > innerWidth / 2 ? next() : prev();
+    return;
+  }
+
+  // sinon, on relance la lecture
+  startSlide(DURATION);
+});
+
+/* ===== Desktop clavier ===== */
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    paused ? resume() : pause();
+  } else if (e.code === 'ArrowRight') {
+    e.preventDefault();
+    next();
+  } else if (e.code === 'ArrowLeft') {
+    e.preventDefault();
+    prev();
   }
 });
 
+/* Cache le hint sur mobile */
+if ('ontouchstart' in window) hint.style.display = 'none';
+
 /* Init */
 showSlide(index);
-startSlide();
+startSlide(DURATION);
 </script>
 
 </body>
